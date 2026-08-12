@@ -1,0 +1,7 @@
+{
+  "n_transactions": 500,
+  "total_amount": 73229.8,
+  "fraud_rate": 0.038,
+  "n_high_value": 0,
+  "high_value_threshold": 10000
+}

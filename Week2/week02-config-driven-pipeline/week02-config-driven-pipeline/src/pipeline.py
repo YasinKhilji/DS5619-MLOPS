@@ -1,7 +1,7 @@
 """
 The "after" version — YOUR file to complete.
 
-Fill in the three functions marked with # TODO. Everything else (CLI wiring,
+The three functions below implement the config-driven pipeline. Everything else (CLI wiring,
 imports) is already done for you. Do not hardcode any path, format string, or
 threshold value anywhere in this file — if you find yourself typing a literal
 number or file path outside of a default/example, it belongs in the config
@@ -25,14 +25,13 @@ def load_config(path):
     Must raise ValueError naming the specific missing key if REQUIRED_KEYS
     are not all present. Do not let this fail with a bare KeyError later.
     """
-    # TODO: implement
+    
     with open(path,'r') as file:
         data = yaml.safe_load(file)
         for key in REQUIRED_KEYS:
             if key not in data:
                 raise ValueError(f"{key} not present in yaml file")
     return data
-    raise NotImplementedError("load_config is not implemented yet")
 
 
 def load_transactions(path, fmt):
@@ -67,7 +66,6 @@ def run_pipeline(config):
     n_high_value, high_value_threshold), and write them as JSON to
     config["output_path"]. Return the report dict as well.
     """
-    # TODO: implement
     rows = load_transactions(config["input_path"],config["input_format"])
     n = len(rows)
     total_amount = sum(float(r["amount"]) for r in rows)
