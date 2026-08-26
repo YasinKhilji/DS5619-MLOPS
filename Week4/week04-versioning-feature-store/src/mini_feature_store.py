@@ -77,8 +77,54 @@ def snapshot_raw_version(input_path, registry_dir):
            CSV header), row_count, created_at (use _now()).
       5. Return the version_id (str).
     """
-    # TODO: implement
-    raise NotImplementedError
+
+    # Get the hash of the input file so we can identify its exact contents.
+    file_hash = content_hash(input_path)
+
+    # This is where we will keep all the raw data versions.
+    raw_dir = os.path.join(registry_dir, "raw_versions")
+
+    # Check the versions that already exist.
+    if os.path.isdir(raw_dir):
+        for version_id in os.listdir(raw_dir):
+            manifest_path = os.path.join(raw_dir, version_id, "manifest.json")
+
+            # If a manifest exists, read it and compare its file hash.
+            if os.path.isfile(manifest_path):
+                with open(manifest_path) as f:
+                    manifest = json.load(f)
+
+                # Same hash means the exact same file was already stored.
+                if manifest["content_hash"] == file_hash:
+                    return manifest["version_id"]
+
+    # If the file is new, create the next version number.
+    version_id = _next_version_id(raw_dir)
+    version_dir = os.path.join(raw_dir, version_id)
+    os.makedirs(version_dir, exist_ok=True)
+
+    # Read the CSV to get its columns and number of rows.
+    rows = _read_csv_rows(input_path)
+
+    with open(input_path, newline="") as f:
+        reader = csv.reader(f)
+        columns = next(reader)
+
+    # Store the important information about this raw data version.
+    manifest = {
+        "version_id": version_id,
+        "source_path": input_path,
+        "content_hash": file_hash,
+        "columns": columns,
+        "row_count": len(rows),
+        "created_at": _now()
+    }
+
+    # Save the manifest so we can identify this version later.
+    with open(os.path.join(version_dir, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    return version_id
 
 
 # ---------------------------------------------------------------------------
@@ -110,8 +156,59 @@ def build_features(rows):
 
     Return: list of feature row dicts, one per card_id, in any order.
     """
-    # TODO: implement
-    raise NotImplementedError
+    # Check which version of the schema we received.
+    # v2 has "country_code", while v1 has "country".
+    is_v2 = "country_code" in rows[0]
+
+    # Store transactions separately for each card.
+    card_data = {}
+
+    for row in rows:
+        card_id = row["card_id"]
+
+        if card_id not in card_data:
+            card_data[card_id] = []
+
+        # Convert the amount into the same unit for both versions.
+        if is_v2:
+            amount = int(row["amount_minor_units"]) / 100
+        else:
+            amount = float(row["amount"])
+
+        # Save the values we need for calculating the features.
+        card_data[card_id].append({
+            "amount": amount,
+            "card_present": row["card_present"] == "True",
+            "event_time": row["timestamp"]
+        })
+
+    # Create one feature row for each card.
+    feature_rows = []
+
+    for card_id, transactions in card_data.items():
+        amounts = [transaction["amount"] for transaction in transactions]
+
+        # Count how many transactions had the card physically present.
+        card_present_count = sum(
+            transaction["card_present"] for transaction in transactions
+        )
+
+        feature_row = {
+            "card_id": card_id,
+            "txn_count": len(transactions),
+            "avg_amount": round(sum(amounts) / len(amounts), 2),
+            "max_amount": round(max(amounts), 2),
+            "pct_card_present": round(
+                card_present_count / len(transactions), 3
+            ),
+            "event_time": max(
+                transaction["event_time"] for transaction in transactions
+            )
+        }
+
+        feature_rows.append(feature_row)
+
+    return feature_rows
 
 
 # ---------------------------------------------------------------------------
@@ -140,9 +237,39 @@ def register_feature_group(name, feature_rows, source_version_id, registry_dir, 
            created_at (use _now()).
       5. Return fg_version_id (str).
     """
-    # TODO: implement
-    raise NotImplementedError
+    # Find the folder where all versions of this feature group are stored.
+    feature_group_dir = os.path.join(registry_dir, "feature_groups", name)
 
+    # Give this feature group the next version number.
+    fg_version_id = _next_version_id(feature_group_dir)
+
+    # Create a separate folder for this version.
+    version_dir = os.path.join(feature_group_dir, fg_version_id)
+    os.makedirs(version_dir, exist_ok=True)
+
+    # Save the features exactly as they were given to us.
+    with open(os.path.join(version_dir, "features.json"), "w") as f:
+        json.dump(feature_rows, f, indent=2)
+
+    # Get the feature names from the first feature row.
+    schema = sorted(feature_rows[0].keys())
+
+    # Record where these features came from and how they were created.
+    manifest = {
+        "feature_group_version_id": fg_version_id,
+        "name": name,
+        "source_raw_version_id": source_version_id,
+        "transform_version": transform_version,
+        "schema": schema,
+        "row_count": len(feature_rows),
+        "created_at": _now()
+    }
+
+    # Save the manifest for this feature group version.
+    with open(os.path.join(version_dir, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    return fg_version_id
 
 # ---------------------------------------------------------------------------
 # Part 4 — Lineage lookup
@@ -162,5 +289,36 @@ def get_lineage(name, fg_version_id, registry_dir):
     FileNotFoundError (the default behavior of open() on a missing file is
     fine — don't catch it) if either manifest is missing.
     """
-    # TODO: implement
-    raise NotImplementedError
+    # Find the manifest for the feature group version we want.
+    feature_manifest_path = os.path.join(
+        registry_dir,
+        "feature_groups",
+        name,
+        fg_version_id,
+        "manifest.json"
+    )
+
+    # Read the feature group's manifest.
+    with open(feature_manifest_path) as f:
+        feature_manifest = json.load(f)
+
+    # Get the raw data version that was used to create these features.
+    source_version_id = feature_manifest["source_raw_version_id"]
+
+    # Find the manifest of that raw data version.
+    raw_manifest_path = os.path.join(
+        registry_dir,
+        "raw_versions",
+        source_version_id,
+        "manifest.json"
+    )
+
+    # Read the raw data manifest.
+    with open(raw_manifest_path) as f:
+        raw_manifest = json.load(f)
+
+    # Return both manifests so we can see the complete lineage.
+    return {
+        "feature_group": feature_manifest,
+        "raw_source": raw_manifest
+    }
