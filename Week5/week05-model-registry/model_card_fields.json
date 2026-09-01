@@ -1,0 +1,6 @@
+{
+  "intended_use": "TODO: one or two sentences — what is this model for, and who is the intended user/system that consumes its predictions?",
+  "training_data": "TODO: one or two sentences — what data was this trained on (reference Week 4's card_activity feature group), what's its known coverage/limits?",
+  "limitations": "TODO: one or two sentences — under what conditions should this model NOT be trusted? (think about what a simple amount-threshold classifier structurally cannot catch)",
+  "ethical_considerations": "TODO: one or two sentences — what's the cost of a false positive here (a legitimate transaction blocked) vs. a false negative (fraud that gets through), and who bears that cost?"
+}
