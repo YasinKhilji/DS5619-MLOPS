@@ -1,6 +1,9 @@
 {
-  "intended_use": "TODO: one or two sentences — what is this model for, and who is the intended user/system that consumes its predictions?",
-  "training_data": "TODO: one or two sentences — what data was this trained on (reference Week 4's card_activity feature group), what's its known coverage/limits?",
-  "limitations": "TODO: one or two sentences — under what conditions should this model NOT be trusted? (think about what a simple amount-threshold classifier structurally cannot catch)",
-  "ethical_considerations": "TODO: one or two sentences — what's the cost of a false positive here (a legitimate transaction blocked) vs. a false negative (fraud that gets through), and who bears that cost?"
+  "intended_use": "This model is intended to flag potentially fraudulent card transactions based on transaction amount patterns. Its predictions are intended to support a fraud-detection system or analyst by identifying transactions that may require further review.",
+
+  "training_data": "The model was trained using the Week 4 `card_activity` feature group, which contains card transaction activity used to distinguish fraudulent from legitimate transactions. Its coverage is limited to the patterns and transaction characteristics represented in this dataset and may not generalize to unseen transaction behaviors.",
+
+  "limitations": "The model should not be trusted as a standalone fraud detector because an amount-threshold classifier primarily relies on transaction amount and cannot capture many contextual fraud signals, such as transaction location, merchant behavior, spending history, device information, or coordinated attack patterns.",
+
+  "ethical_considerations": "A false positive may cause a legitimate transaction to be blocked or delayed, creating inconvenience for the customer and potentially affecting access to funds. A false negative allows a fraudulent transaction to proceed, potentially causing financial loss to the customer or financial institution, so both types of errors have meaningful costs."
 }
